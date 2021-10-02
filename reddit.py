@@ -20,9 +20,11 @@ def build_edges(df, source, target):
     records = df[[source, target]].to_records(index=False)
     return [{'data': {'source': str(i[0]), 'target': str(i[1])}} for i in records]
 
+
 def load_json(path):
     with open(path) as f:
         return json.load(f)
+
 
 class redditGraph():
     def __init__(self, sub, query):
@@ -32,17 +34,23 @@ class redditGraph():
             client_secret=config['secret'],
             user_agent=f"<platform>:{config['client_id']}:0.1 (by u/edgewize_)",
         )
-        self.node_types = ['author', 'title', 'subreddit', 'created']
+        self.node_types = ['author', 'title',
+                           'subreddit']
         self.subreddit = sub
         self.query = query
 
     def search(self):
-        return self.client.subreddit(self.subreddit).search(self.query)
+        return self.client.subreddit(self.subreddit).search(self.query, limit=None)
 
     def cyto_data(self):
         search = self.search()
         df = pd.DataFrame([i.__dict__ for i in search])
         df['author'] = df['author'].apply(lambda x: x.name)
+        df['created'] = pd.to_datetime(
+            df['created'], unit='s').apply(lambda x: x.date())
+        df['year-month'] = df['created'].apply(lambda x: f'{x.year}-{x.month}')
+        df['month-day'] = df['created'].apply(lambda x: f'{x.month}-{x.day}')
+
         nodes = flatten_list([build_nodes(df, node_type)
                              for node_type in self.node_types])
         relationships = combinations(self.node_types, 2)
